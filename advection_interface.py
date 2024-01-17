@@ -4,7 +4,7 @@ from pina import Trainer
 from pina.solvers import PINN
 from pina.plotter import Plotter
 from pina.model import FeedForward
-from multiphase_problems import AdvectionInterface
+from multiphase_problems import AdvectionInterface, AdvectionInterfaceMass
 from utils import create_parser
 from pytorch_lightning.callbacks import Callback
 
@@ -16,7 +16,7 @@ class HardNet(torch.nn.Module):
         self.model = FeedForward(*args, **kwargs)
 
     def forward(self, x):
-        return x['x'] * self.model(x)
+        return self.model(x) * x['x'] 
     
 # Allen Cahn coefficient update
 class UpdateCoeff_AllenCahn(Callback):
@@ -34,13 +34,16 @@ if __name__ == "__main__":
     callback = [UpdateCoeff_AllenCahn()] if args.allen_cahn else []
 
     # define problem + discretize
-    problem = AdvectionInterface()
-    problem.discretise_domain(20, 'grid', locations=['t0'])
-    problem.discretise_domain(100, 'grid', locations=['gamma'])
-    problem.discretise_domain(20, 'grid', locations=['D'], variables=['x'])
-    problem.discretise_domain(100, 'grid', locations=['D'], variables=['t'])
-    problem.discretise_domain(20, 'grid', locations=['mass'], variables=['x'])
-    problem.discretise_domain(100, 'grid', locations=['mass'], variables=['t'])
+    problem = AdvectionInterfaceMass() if args.mass else AdvectionInterface()
+    nx = 20
+    nt = 100
+    problem.discretise_domain(nx, 'grid', locations=['t0'])
+    problem.discretise_domain(nt, 'grid', locations=['gamma'])
+    problem.discretise_domain(nx, 'grid', locations=['D'], variables=['x'])
+    problem.discretise_domain(nt, 'grid', locations=['D'], variables=['t'])
+    if args.mass:
+        problem.discretise_domain(nx, 'grid', locations=['mass'], variables=['x'])
+        problem.discretise_domain(nt, 'grid', locations=['mass'], variables=['t'])
 
     # make model
     model = HardNet(input_dimensions=2, output_dimensions=1, func=torch.nn.Tanh, inner_size=20, n_layers=4)

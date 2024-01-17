@@ -37,7 +37,10 @@ class AdvectionInterface(TimeDependentProblem, SpatialProblem):
         # define true solution
     def truth_solution(self, pts):
         eps = AdvectionInterface.eps
-        return 0.5 * (1 + torch.tanh(((pts.extract(['x'])-0.25)-pts.extract(['t']))/(2.0*eps)))
+        x = pts.extract(['x']) - 0.25
+        t = pts.extract(['t'])
+        f = lambda x : 0.5 * (1 + torch.tanh(x/(2.0*eps)))
+        return f(x-t)
 
     def advection(input_, output_):
         gradient  = grad(output_, input_)
@@ -53,14 +56,6 @@ class AdvectionInterface(TimeDependentProblem, SpatialProblem):
         allen_cahn = LabelTensor(sharp, labels=dphi_t.labels) * AdvectionInterface.scale
         return (dphi_t + dphi_x - allen_cahn)
 
-    def mass_conservation(input_, output_):
-            mask = input_['t']==0
-            phi_expected = AdvectionInterface.phi_initial(input_).tensor[mask]
-            tot_mass = phi_expected.mean()
-            out_mass = [output_[(input_['t'] == t).flatten()].mean() for t in torch.unique(input_['t'])]
-            out_mass = torch.stack(out_mass)
-            return tot_mass - out_mass
-
 
     # problem condition statement
     conditions = {
@@ -68,6 +63,22 @@ class AdvectionInterface(TimeDependentProblem, SpatialProblem):
             location=CartesianDomain({'x': 1, 't' : [0, T]}),
             equation=FixedValue(1.0)),
         't0': Condition(location=CartesianDomain({'x': [0, 1], 't': 0}), equation=Equation(initial_condition)),
-        'D': Condition(location=CartesianDomain({'x': [0, 1], 't': [0., T]}), equation= Equation(advection)),
-        'mass' : Condition(location=CartesianDomain({'x': [0, 1], 't': [0., T]}), equation= Equation(mass_conservation)),
+        'D': Condition(location=CartesianDomain({'x': [0, 1], 't': [0., T]}), equation= Equation(advection))
     }
+
+class AdvectionInterfaceMass(AdvectionInterface):
+
+    def mass_conservation(input_, output_):
+            mask = input_['t']==0
+            phi_expected = AdvectionInterface.phi_initial(input_).tensor[mask]
+            tot_mass = phi_expected.sum()
+            out_mass = [output_[(input_['t'] == t).flatten()].sum() for t in torch.unique(input_['t'])]
+            out_mass = torch.stack(out_mass)
+            return tot_mass - out_mass
+
+    # problem condition statement
+    conditions = {}
+    for key, condition in AdvectionInterface.conditions.items():
+         conditions[key] = condition
+
+    conditions['mass'] = Condition(location=CartesianDomain({'x': [0, 1], 't': [0., AdvectionInterface.T]}), equation= Equation(mass_conservation))

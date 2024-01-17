@@ -19,6 +19,10 @@ def create_parser():
     parser.add_argument('--no-plot', dest='plot', action='store_false', help="don't plot the solution")
     parser.set_defaults(plot=True)
 
+    parser.add_argument('--mass', action='store_true', help="don't apply mass conservation")
+    parser.add_argument('--no-mass', dest='mass', action='store_false', help="apply mass conservation (default)")
+    parser.set_defaults(mass=False)
+
     parser.add_argument("--epochs", help="number of training epochs (default 5000)", type=int, default=5000)
     parser.add_argument("--lr", help="learning rate (default 0.001)", type=float, default=0.001)
     args = parser.parse_args()
