@@ -67,23 +67,6 @@ class AdvectionInterface(TimeDependentProblem, SpatialProblem):
         'D': Condition(location=CartesianDomain({'x': [0, 1], 't': [0., T]}), equation= Equation(advection))
     }
 
-class AdvectionInterfaceMass(AdvectionInterface):
-
-    def mass_conservation(input_, output_):
-        mask = input_['t']==0
-        phi_expected = AdvectionInterface.phi_initial(input_).tensor[mask]
-        tot_mass = phi_expected.mean()
-        out_mass = [output_[(input_['t'] == t).flatten()].mean() for t in torch.unique(input_['t'])]
-        out_mass = torch.stack(out_mass)
-        return tot_mass - out_mass
-
-    # problem condition statement
-    conditions = {}
-    for key, condition in AdvectionInterface.conditions.items():
-         conditions[key] = condition
-
-    conditions['mass'] = Condition(location=CartesianDomain({'x': [0, 1], 't': [0., AdvectionInterface.T]}), equation= Equation(mass_conservation))
-
 class RotatingBubble(TimeDependentProblem, SpatialProblem):
 
     # time
