@@ -34,6 +34,7 @@ class HardNet(torch.nn.Module):
 # Allen Cahn coefficient update
 class UpdateCoeff_AllenCahn(Callback):
     def on_train_epoch_end(self, trainer, __):
+        print(trainer.solver.problem.__class__.scale)
         trainer.solver.problem.__class__.scale = min(1.0, trainer.current_epoch*1e-4)
         return
 
@@ -41,14 +42,11 @@ if __name__ == "__main__":
 
     # get parser
     args = create_parser()
-
-    # extra features
-    callback = [UpdateCoeff_AllenCahn()] if args.allen_cahn else []
     
     # define problem + discretize
     problem = RotatingBubbleMass() if args.mass else RotatingBubble()
     nx = 20
-    nt = 600
+    nt = 100
     problem.discretise_domain(nx, 'grid', locations=['t0'])
     problem.discretise_domain(nx, 'grid', locations=['D'], variables=['x','y'])
     problem.discretise_domain(nt, 'grid', locations=['D'], variables=['t'])
@@ -56,6 +54,9 @@ if __name__ == "__main__":
         problem.discretise_domain(nx, 'grid'  , locations=['mass'], variables=['x','y'])
         problem.discretise_domain(nt, 'grid'  , locations=['mass'], variables=['t'])
 
+    # extra features
+    callback = [UpdateCoeff_AllenCahn()] if args.allen_cahn else []
+    
     # make model
     model = HardNet(input_dimensions=3, output_dimensions=1, func=torch.nn.Tanh, inner_size=20, n_layers=4)
     if args.load_model: # loading if not training

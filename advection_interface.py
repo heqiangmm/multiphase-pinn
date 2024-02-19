@@ -34,7 +34,7 @@ if __name__ == "__main__":
     callback = [UpdateCoeff_AllenCahn()] if args.allen_cahn else []
 
     # define problem + discretize
-    problem = AdvectionInterfaceMass() if args.mass else AdvectionInterface()
+    problem = AdvectionInterface()
     nx = 20
     nt = 100
     problem.discretise_domain(nx, 'grid', locations=['t0'])

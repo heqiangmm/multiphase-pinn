@@ -63,8 +63,10 @@ class AdvectionInterface(TimeDependentProblem, SpatialProblem):
         'gamma': Condition(
             location=CartesianDomain({'x': 1, 't' : [0, T]}),
             equation=FixedValue(1.0)),
-        't0': Condition(location=CartesianDomain({'x': [0, 1], 't': 0}), equation=Equation(initial_condition)),
-        'D': Condition(location=CartesianDomain({'x': [0, 1], 't': [0., T]}), equation= Equation(advection))
+        't0': Condition(location=CartesianDomain({'x': [0, 1], 't': 0}), 
+                        equation=Equation(initial_condition)),
+        'D': Condition(location=CartesianDomain({'x': [0, 1], 't': [0., T]}), 
+                       equation= Equation(advection))
     }
 
 class RotatingBubble(TimeDependentProblem, SpatialProblem):
@@ -122,8 +124,16 @@ class RotatingBubble(TimeDependentProblem, SpatialProblem):
 
     # problem condition statement
     conditions = {
-        't0': Condition(location=CartesianDomain({'x': [-0.5, 0.5], 'y': [-0.5, 0.5], 't': 0}), equation=Equation(initial_condition)),
-        'D': Condition(location=CartesianDomain({'x': [-0.5, 0.5], 'y': [-0.5, 0.5], 't': [0, T]}), equation=Equation(advection)),
+        't0': Condition(
+            location=CartesianDomain({'x': [-0.5, 0.5], 
+                                      'y': [-0.5, 0.5], 
+                                      't': 0}), 
+            equation=Equation(initial_condition)),
+        'D': Condition(
+            location=CartesianDomain({'x': [-0.5, 0.5], 
+                                      'y': [-0.5, 0.5], 
+                                      't': [0, T]}),
+            equation=Equation(advection)),
     }
 
 class RotatingBubbleMass(RotatingBubble):
@@ -132,7 +142,8 @@ class RotatingBubbleMass(RotatingBubble):
         mask = input_['t']==0
         phi_expected = RotatingBubble.phi_initial(input_).tensor[mask]
         tot_mass = phi_expected.mean()
-        out_mass = [output_[(input_['t'] == t).flatten()].mean() for t in torch.unique(input_['t'])]
+        out_mass = [output_[(input_['t'] == t).flatten()].mean() 
+                    for t in torch.unique(input_['t'])]
         out_mass = torch.stack(out_mass)
         return tot_mass - out_mass
 
@@ -141,4 +152,8 @@ class RotatingBubbleMass(RotatingBubble):
     for key, condition in RotatingBubble.conditions.items():
          conditions[key] = condition
 
-    conditions['mass'] = Condition(location=CartesianDomain({'x': [-0.5, 0.5], 'y': [-0.5, 0.5], 't': [0, RotatingBubble.T]}), equation= Equation(mass_conservation))
+    conditions['mass'] = Condition(
+        location=CartesianDomain({'x': [-0.5, 0.5], 
+                                  'y': [-0.5, 0.5], 
+                                  't': [0, RotatingBubble.T]}), 
+        equation= Equation(mass_conservation))
