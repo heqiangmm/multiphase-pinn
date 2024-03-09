@@ -9,65 +9,6 @@ from pina.equation import Equation,SystemEquation
 from pina.equation.equation_factory import FixedValue
 from pina.equation import Equation
 
-############ 1-dimensional problems ###########
-
-class AdvectionInterface(TimeDependentProblem, SpatialProblem):
-
-    # time
-    T = 0.5
-    scale = 0.00
-    eps = 0.005
-
-    # assign output/ spatial and temporal variables
-    output_variables = ['phi']
-    spatial_domain = CartesianDomain({'x': [0, 1]})
-    temporal_domain = CartesianDomain({'t': [0, T]})
-
-    @staticmethod
-    def phi_initial(input_):
-        eps = AdvectionInterface.eps
-        x = input_.extract(['x']) - 0.25
-        f = lambda x : 0.5 * (1 + torch.tanh(x/(2.0*eps)))
-        return f(x)
-
-        # define initial condition
-    def initial_condition(input_, output_):
-        phi_expected = AdvectionInterface.phi_initial(input_)
-        return output_.extract(['phi']) - phi_expected
-
-        # define true solution
-    def truth_solution(self, pts):
-        eps = AdvectionInterface.eps
-        x = pts.extract(['x']) - 0.25
-        t = pts.extract(['t'])
-        f = lambda x : 0.5 * (1 + torch.tanh(x/(2.0*eps)))
-        return f(x-t)
-
-    def advection(input_, output_):
-        gradient  = grad(output_, input_)
-        dphi_t     = gradient.extract(['dphidt'])
-        dphi_x = gradient.extract(['dphidx'])
-        eps = AdvectionInterface.eps
-        # compute residuals
-        normals = dphi_x/(torch.abs(dphi_x)+1e-10)
-        normals = normals.detach()
-        grad2 = -output_*(1.0-output_)*normals + eps*dphi_x
-        grad2 = LabelTensor(grad2, labels=dphi_x.labels)
-        sharp = grad(grad2, input_, d=['x'])
-        allen_cahn = LabelTensor(sharp, labels=dphi_t.labels) * AdvectionInterface.scale
-        return (dphi_t + dphi_x - allen_cahn)
-
-
-    # problem condition statement
-    conditions = {
-        'gamma': Condition(
-            location=CartesianDomain({'x': 1, 't' : [0, T]}),
-            equation=FixedValue(1.0)),
-        't0': Condition(location=CartesianDomain({'x': [0, 1], 't': 0}), 
-                        equation=Equation(initial_condition)),
-        'D': Condition(location=CartesianDomain({'x': [0, 1], 't': [0., T]}), 
-                       equation= Equation(advection))
-    }
 
 class RotatingBubble(TimeDependentProblem, SpatialProblem):
 
@@ -75,11 +16,14 @@ class RotatingBubble(TimeDependentProblem, SpatialProblem):
     T = 2.0*torch.pi
     scale = 0.00
     eps = 0.005
+    x_domain = [-0.5, 0.5]
+    y_domain = [-0.5, 0.5]
+    t_domain = [0, T]
 
     # assign output/ spatial and temporal variables
     output_variables = ['phi']
-    spatial_domain = CartesianDomain({'x': [-0.5, 0.5], 'y': [-0.5, 0.5]})
-    temporal_domain = CartesianDomain({'t': [0, T]})
+    spatial_domain = CartesianDomain({'x': x_domain, 'y': y_domain})
+    temporal_domain = CartesianDomain({'t': t_domain})
     center = LabelTensor(torch.tensor([[0.0, 0.0]]), labels=['x', 'y'])
     
     def phi_initial(input_):
@@ -124,15 +68,35 @@ class RotatingBubble(TimeDependentProblem, SpatialProblem):
 
     # problem condition statement
     conditions = {
+        'gamma1': Condition(
+            location=CartesianDomain({'x': x_domain[0], 
+                                      'y': y_domain, 
+                                      't': t_domain}), 
+            equation=FixedValue(0)),
+        'gamma2': Condition(
+            location=CartesianDomain({'x': x_domain[1], 
+                                      'y': y_domain, 
+                                      't': t_domain}), 
+            equation=FixedValue(0)),
+        'gamma3': Condition(
+            location=CartesianDomain({'x': x_domain, 
+                                      'y': y_domain[0], 
+                                      't': t_domain}), 
+            equation=FixedValue(0)),
+        'gamma4': Condition(
+            location=CartesianDomain({'x': x_domain, 
+                                      'y': y_domain[1], 
+                                      't': t_domain}), 
+            equation=FixedValue(0)),
         't0': Condition(
-            location=CartesianDomain({'x': [-0.5, 0.5], 
-                                      'y': [-0.5, 0.5], 
-                                      't': 0}), 
+            location=CartesianDomain({'x': x_domain, 
+                                      'y': y_domain, 
+                                      't': 0.}), 
             equation=Equation(initial_condition)),
         'D': Condition(
-            location=CartesianDomain({'x': [-0.5, 0.5], 
-                                      'y': [-0.5, 0.5], 
-                                      't': [0, T]}),
+            location=CartesianDomain({'x': x_domain, 
+                                      'y': y_domain, 
+                                      't': t_domain}),
             equation=Equation(advection)),
         'gamma1': Condition(
             location=CartesianDomain({'x': -0.5,
@@ -173,9 +137,9 @@ class RotatingBubbleMass(RotatingBubble):
          conditions[key] = condition
 
     conditions['mass'] = Condition(
-        location=CartesianDomain({'x': [-0.5, 0.5], 
-                                  'y': [-0.5, 0.5], 
-                                  't': [0, RotatingBubble.T]}), 
+        location=CartesianDomain({'x': RotatingBubble.x_domain, 
+                                  'y': RotatingBubble.y_domain, 
+                                  't': RotatingBubble.t_domain}), 
         equation= Equation(mass_conservation))
         
 
