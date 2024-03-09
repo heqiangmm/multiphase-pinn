@@ -134,6 +134,26 @@ class RotatingBubble(TimeDependentProblem, SpatialProblem):
                                       'y': [-0.5, 0.5], 
                                       't': [0, T]}),
             equation=Equation(advection)),
+        'gamma1': Condition(
+            location=CartesianDomain({'x': -0.5,
+                                      'y': [-0.5, 0.5],
+                                      't': [0, T]}),
+            equation=FixedValue(0.0)),
+        'gamma2': Condition(
+            location=CartesianDomain({'x': 0.5,
+                                      'y': [-0.5, 0.5],
+                                      't' : [0, T]}),
+            equation=FixedValue(0.0)),
+        'gamma3': Condition(
+            location=CartesianDomain({'x': [-0.5, 0.5],
+                                      'y': -0.5,
+                                      't: [0, T]}),
+            equation=FixedValue(0.0)),
+        'gamma4': Condition(
+            location=CartesianDomain({'x': [-0.5, 0.5],
+                                      'y': 0.5,
+                                      't': [0, T]}),
+            equation=FixedValue(0.0)),
     }
 
 class RotatingBubbleMass(RotatingBubble):
