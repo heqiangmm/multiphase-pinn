@@ -87,7 +87,7 @@ if __name__ == "__main__":
         pl = Plotter()
         pl.plot(solver=solver)
 
-        T = 2.0*torch.pi
+        T = 1.0
         times = torch.linspace(0, T, 100)
         mass = torch.zeros(100)
         lphi = torch.zeros(100)
