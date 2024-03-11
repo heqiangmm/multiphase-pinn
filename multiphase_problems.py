@@ -15,7 +15,7 @@ class RotatingBubble(TimeDependentProblem, SpatialProblem):
     # time
     T = 2.0*torch.pi
     scale = 0.00
-    eps = 0.005
+    eps = 0.0005
     x_domain = [-0.5, 0.5]
     y_domain = [-0.5, 0.5]
     t_domain = [0, T]
@@ -91,33 +91,13 @@ class RotatingBubble(TimeDependentProblem, SpatialProblem):
         't0': Condition(
             location=CartesianDomain({'x': x_domain, 
                                       'y': y_domain, 
-                                      't': 0.}), 
+                                      't': t_domain[0]}), 
             equation=Equation(initial_condition)),
         'D': Condition(
             location=CartesianDomain({'x': x_domain, 
                                       'y': y_domain, 
                                       't': t_domain}),
-            equation=Equation(advection)),
-        'gamma1': Condition(
-            location=CartesianDomain({'x': -0.5,
-                                      'y': [-0.5, 0.5],
-                                      't': [0, T]}),
-            equation=FixedValue(0.0)),
-        'gamma2': Condition(
-            location=CartesianDomain({'x': 0.5,
-                                      'y': [-0.5, 0.5],
-                                      't' : [0, T]}),
-            equation=FixedValue(0.0)),
-        'gamma3': Condition(
-            location=CartesianDomain({'x': [-0.5, 0.5],
-                                      'y': -0.5,
-                                      't: [0, T]}),
-            equation=FixedValue(0.0)),
-        'gamma4': Condition(
-            location=CartesianDomain({'x': [-0.5, 0.5],
-                                      'y': 0.5,
-                                      't': [0, T]}),
-            equation=FixedValue(0.0)),
+            equation=Equation(advection))
     }
 
 class RotatingBubbleMass(RotatingBubble):
@@ -143,18 +123,20 @@ class RotatingBubbleMass(RotatingBubble):
         equation= Equation(mass_conservation))
         
 
-
 class RiderKothe(TimeDependentProblem, SpatialProblem):
 
     # time
     T = 1.0
     scale = 0.00
     eps = 0.005
+    x_domain = [-0.5, 0.5]
+    y_domain = [-0.5, 0.5]
+    t_domain = [0, T]
 
     # assign output/ spatial and temporal variables
     output_variables = ['phi']
-    spatial_domain = CartesianDomain({'x': [-0.5, 0.5], 'y': [-0.5, 0.5]})
-    temporal_domain = CartesianDomain({'t': [0, T]})
+    spatial_domain = CartesianDomain({'x': x_domain, 'y': y_domain})
+    temporal_domain = CartesianDomain({'t': t_domain})
     center = LabelTensor(torch.tensor([[0.0, 0.0]]), labels=['x', 'y'])
     
     def phi_initial(input_):
@@ -200,34 +182,34 @@ class RiderKothe(TimeDependentProblem, SpatialProblem):
     # problem condition statement
     conditions = {
         't0': Condition(
-            location=CartesianDomain({'x': [-0.5, 0.5], 
-                                      'y': [-0.5, 0.5], 
-                                      't': 0}), 
+            location=CartesianDomain({'x': x_domain, 
+                                      'y': y_domain, 
+                                      't': t_domain[0]}), 
             equation=Equation(initial_condition)),
         'D': Condition(
-            location=CartesianDomain({'x': [-0.5, 0.5], 
-                                      'y': [-0.5, 0.5], 
-                                      't': [0, T]}),
+            location=CartesianDomain({'x': x_domain, 
+                                      'y': y_domain, 
+                                      't': t_domain}),
             equation=Equation(advection)),
         'gamma1': Condition(
-            location=CartesianDomain({'x': -0.5,
-                                      'y': [-0.5, 0.5],
-                                      't': [0, T]}),
+            location=CartesianDomain({'x': x_domain[0],
+                                      'y': y_domain,
+                                      't': t_domain}),
             equation=FixedValue(0.0)),
         'gamma2': Condition(
-            location=CartesianDomain({'x': 0.5,
-                                      'y': [-0.5, 0.5],
-                                      't' : [0, T]}),
+            location=CartesianDomain({'x': x_domain[1],
+                                      'y': y_domain,
+                                      't' : t_domain}),
             equation=FixedValue(0.0)),
         'gamma3': Condition(
-            location=CartesianDomain({'x': [-0.5, 0.5],
-                                      'y': -0.5,
-                                      't: [0, T]}),
+            location=CartesianDomain({'x': x_domain,
+                                      'y': y_domain[0],
+                                      't': t_domain}),
             equation=FixedValue(0.0)),
         'gamma4': Condition(
-            location=CartesianDomain({'x': [-0.5, 0.5],
-                                      'y': 0.5,
-                                      't': [0, T]}),
+            location=CartesianDomain({'x': x_domain,
+                                      'y': y_domain[1],
+                                      't': t_domain}),
             equation=FixedValue(0.0)),
     }
 
@@ -248,7 +230,7 @@ class RiderKotheMass(RiderKothe):
          conditions[key] = condition
 
     conditions['mass'] = Condition(
-        location=CartesianDomain({'x': [-0.5, 0.5], 
-                                  'y': [-0.5, 0.5], 
-                                  't': [0, RiderKothe.T]}), 
+        location=CartesianDomain({'x': RiderKothe.x_domain, 
+                                  'y': RiderKothe.y_domain, 
+                                  't': RiderKothe.t_domain}), 
         equation= Equation(mass_conservation))

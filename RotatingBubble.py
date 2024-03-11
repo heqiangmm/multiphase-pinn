@@ -1,16 +1,16 @@
+from pytorch_lightning.core.module import LightningModule
+from pytorch_lightning.trainer import Trainer
 import torch
-import numpy as np
 
-from pina import Trainer, LabelTensor
+from pina import Trainer
 from pina.solvers import PINN
 from pina.callbacks import MetricTracker
 
 from multiphase_problems import RotatingBubble, RotatingBubbleMass
-from utils import create_parser, load_state, save_state
+from utils import create_parser, load_state, save_state, PostProcessing
 from nn import SigmoidNet
 
 from pytorch_lightning.callbacks import Callback
-import matplotlib.pyplot as plt
 
 # ===================================================== #
 #                                                       #
@@ -26,11 +26,12 @@ import matplotlib.pyplot as plt
 # ===================================================== #
     
     
-# Allen Cahn coefficient update
+# Allen Cahn coefficient update 
 class UpdateCoeff_AllenCahn(Callback):
     def __init__(self, switch_epoch):
         super().__init__()
         self._switch_epoch = switch_epoch - 1
+
     def on_train_epoch_end(self, trainer, __):
         if trainer.current_epoch == self._switch_epoch:
             trainer.solver.problem.__class__.scale = 1
@@ -78,7 +79,10 @@ if __name__ == "__main__":
                 problem=problem,
                 model=model,
                 optimizer=torch.optim.Adam,
-                optimizer_kwargs={'lr' : args.lr})
+                optimizer_kwargs={'lr' : args.lr},
+                scheduler=torch.optim.lr_scheduler.MultiStepLR,
+                scheduler_kwargs={'milestones': [args.epochs//2],
+                                  'gamma': 0.1})
 
     # make the trainer
     if args.save_model:
@@ -89,3 +93,5 @@ if __name__ == "__main__":
         save_state(trainer, args.save_model)
     elif args.load_model:
         trainer = load_state(args.load_model)
+        pp = PostProcessing(trainer, evaluation_pts=problem.input_pts['D'])
+        pp.plot_thickness(filename='solution')
