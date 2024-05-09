@@ -8,4 +8,6 @@ class SigmoidNet(torch.nn.Module):
         self.sigmoid = torch.nn.Sigmoid()
 
     def forward(self, x):
-        return self.sigmoid(self.model(x))
+        output = self.model(x)
+        sigmoid_output = torch.cat((self.sigmoid(output[:, :1]), output[:, 1:]), dim=1)
+        return sigmoid_output

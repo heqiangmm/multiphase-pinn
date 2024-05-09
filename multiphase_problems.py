@@ -234,3 +234,182 @@ class RiderKotheMass(RiderKothe):
                                   'y': RiderKothe.y_domain, 
                                   't': RiderKothe.t_domain}), 
         equation= Equation(mass_conservation))
+
+class RayleighTaylor(TimeDependentProblem, SpatialProblem):
+
+    # params
+    d = 1.0
+    At = 0.5
+    Re = 3000.
+    gg = 9.82
+    rho1 = 1.5
+    rho2 = 0.5
+    mu = (rho1*d**1.5*gg**0.5)/Re
+    g = torch.tensor([[0, 9.82]])
+    tstar = np.sqrt(d/(gg*At))
+    T = 1.0*tstar    #0.5                             # already adimensional
+    scale = 0.00
+    eps = 0.02
+
+    # domains
+    x_domain = [-0.5, 0.5]
+    y_domain = [0., 4.]
+    t_domain = [0, T]
+
+    # assign output/ spatial and temporal variables
+    output_variables = ['phi', 'ux', 'uy', 'pr']
+    spatial_domain = CartesianDomain({'x': x_domain, 'y': y_domain})
+    temporal_domain = CartesianDomain({'t': t_domain})
+
+    # define initial condition
+    def initial_phi(input_, output_):
+        d = RayleighTaylor.d
+        eps = RayleighTaylor.eps
+        x = input_.extract(['x'])+0.5
+        y = input_.extract(['y'])
+        f = 2.*d + 0.1*d*torch.cos(torch.pi*2.*x / d)
+        phi_expected = 0.5*(1. + torch.tanh( (y-f) / (2.*eps)))
+        return output_.extract(['phi']) - phi_expected
+
+    # define initial condition
+    def initial_ux(input_, output_):
+        return output_.extract(['ux'])
+
+    # define initial condition
+    def initial_uy(input_, output_):
+        return output_.extract(['uy'])
+
+    # define initial condition
+    def initial_p(input_, output_):
+        d = RayleighTaylor.d
+        eps = RayleighTaylor.eps
+        x = input_.extract(['x'])+0.5
+        y = input_.extract(['y'])
+        f = 2.*d + 0.1*d*torch.cos(torch.pi*2.*x / d)
+        phi = 0.5*(1. + torch.tanh( (y-f) / (2.*eps)))
+        rho = RayleighTaylor.rho1 * phi + RayleighTaylor.rho2 * (1.-phi)
+        grad_p = grad(output_, input_, components=['pr'], d=['x', 'y'])
+        g = RayleighTaylor.g
+        g = g.to(input_.device)
+        return grad_p + rho*g
+
+    def zerodivegence(input_, output_):
+        return div(output_, input_, d=['x', 'y'], components=['ux', 'uy'])
+
+    def advection(input_, output_):
+        gradient  = grad(output_, input_)
+        dphi_t    = gradient.extract(['dphidt'])
+        dphi_x    = gradient.extract(['dphidx'])
+        dphi_y    = gradient.extract(['dphidy'])
+        ux = output_.extract('ux')
+        uy = output_.extract('uy')
+        # compute residuals
+        return dphi_t + ux * dphi_x + uy * dphi_y
+    
+    def ns(input_, output_):
+        # RHS of NS equation
+        phi = output_.extract('phi')
+        rho = RayleighTaylor.rho1 * phi + RayleighTaylor.rho2 * (1.-phi)
+        u_t = grad(output_, input_, components=['ux', 'uy'], d=['t'])
+        grad_uxx = grad(output_, input_, components=['ux'], d=['x'])
+        grad_uxy = grad(output_, input_, components=['ux'], d=['y'])
+        grad_uyx = grad(output_, input_, components=['uy'], d=['x'])
+        grad_uyy = grad(output_, input_, components=['uy'], d=['y'])
+        ux = output_.extract('ux')
+        uy = output_.extract('uy')
+        conv_x = ux*grad_uxx + uy*grad_uxy
+        conv_y = ux*grad_uyx + uy*grad_uyy
+        conv = torch.cat((conv_x, conv_y), dim=1)
+        RHS = rho*(u_t + conv)
+        # LHS of NS equation
+        laplacian_u = laplacian(output_, input_, components=['ux', 'uy'], d=['x', 'y'])
+        grad_p = grad(output_, input_, components=['pr'], d=['x', 'y'])
+        g = RayleighTaylor.g
+        g = g.to(input_.device)
+        LHS = -grad_p + RayleighTaylor.mu*laplacian_u - rho*g
+        return RHS - LHS
+    
+    def no_slip_u(input_, output_):
+        return output_.extract(['ux', 'uy'])
+    
+    def no_slip_p(input_, output_):
+        return output_.extract('pr')
+    
+    def slip_u(input_, output_):
+        return output_.extract('ux')
+
+    def phi_up(input_, output_):
+        return 1.0-output_.extract('phi')
+
+    # problem condition statement
+    conditions = {
+        't0_phi': Condition(
+            location=CartesianDomain({'x': x_domain, 
+                                      'y': y_domain, 
+                                      't': t_domain[0]}), 
+            equation=Equation(initial_phi)),
+        't0_ux': Condition(
+            location=CartesianDomain({'x': x_domain,
+                                      'y': y_domain,
+                                      't': t_domain[0]}),
+            equation=Equation(initial_ux)),
+        't0_uy': Condition(
+            location=CartesianDomain({'x': x_domain,
+                                      'y': y_domain,
+                                      't': t_domain[0]}),
+            equation=Equation(initial_uy)),
+        'D1': Condition(
+            location=CartesianDomain({'x': x_domain, 
+                                      'y': y_domain, 
+                                      't': t_domain}), 
+            equation=Equation(zerodivegence)
+        ),
+        'D2': Condition(
+            location=CartesianDomain({'x': x_domain,
+                                      'y': y_domain,
+                                      't': t_domain}),
+            equation=Equation(advection)
+        ),
+        'D3': Condition(
+            location=CartesianDomain({'x': x_domain,
+                                      'y': y_domain,
+                                      't': t_domain}),
+            equation=Equation(ns)
+        ),
+        'gammatop_u': Condition(
+            location=CartesianDomain({'x': x_domain, 
+                                      'y': y_domain[1], 
+                                      't': t_domain}), 
+            equation=Equation(no_slip_u)
+        ),
+        'gammatop_p': Condition(
+            location=CartesianDomain({'x': x_domain,
+                                      'y': y_domain[1],
+                                      't': t_domain}),
+            equation=Equation(no_slip_p)
+        ),
+        'gammatop_phi': Condition(
+            location=CartesianDomain({'x': x_domain,
+                                      'y': y_domain[1],
+                                      't': t_domain}),
+            equation=Equation(phi_up)
+        ),
+        'gammabottom': Condition(
+            location=CartesianDomain({'x': x_domain, 
+                                      'y': y_domain[0], 
+                                      't': t_domain}), 
+            equation=Equation(no_slip_u)
+        ),
+        'gammaleft': Condition(
+            location=CartesianDomain({'x': x_domain[0], 
+                                      'y': y_domain, 
+                                      't': t_domain}), 
+            equation=Equation(slip_u)
+        ),
+        'gammaright': Condition(
+            location=CartesianDomain({'x': x_domain[1], 
+                                      'y': y_domain, 
+                                      't': t_domain}), 
+            equation=Equation(slip_u)
+        )
+    }
